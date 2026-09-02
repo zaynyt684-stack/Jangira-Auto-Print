@@ -1,0 +1,5 @@
+const cfg=window.JEM_CONFIG||{};
+const form=document.querySelector('#print-form');
+form?.addEventListener('submit',async e=>{e.preventDefault();const msg=document.querySelector('#form-message');const file=document.querySelector('#file').files[0];if(!file){msg.textContent='Please select a PDF or image.';return}if(file.size>20*1024*1024){msg.textContent='File size must be 20 MB or less.';return}if(!cfg.API_BASE_URL){msg.textContent='Print backend is being connected. The website UI is ready.';return}msg.textContent='Preparing your print request…';});
+const track=document.querySelector('#track-form');
+track?.addEventListener('submit',async e=>{e.preventDefault();const id=document.querySelector('#order-id').value.trim();const out=document.querySelector('#track-result');out.hidden=false;if(!cfg.API_BASE_URL){out.textContent=`Tracking backend is not connected yet. Order: ${id}`;return}try{const r=await fetch(`${cfg.API_BASE_URL}/api/orders/${encodeURIComponent(id)}`);if(!r.ok)throw new Error();const data=await r.json();out.textContent=`Status: ${data.status||'Received'}`;}catch{out.textContent='Order could not be found right now. Please check the Order ID.';}});
