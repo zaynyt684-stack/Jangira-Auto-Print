@@ -1,0 +1,1 @@
+window.JEM_CONFIG={API_BASE_URL:"",SIGNALR_URL:"",ENVIRONMENT:"production"};
