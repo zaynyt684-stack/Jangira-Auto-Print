@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Jangira E-Mitra — print documents online and track your request.">
+  <title>Jangira E-Mitra | Print smarter. Get it done.</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./">Jangira <span>E-Mitra</span></a>
+    <nav aria-label="Primary navigation">
+      <a href="#print">Print</a>
+      <a href="#services">Services</a>
+      <a href="#track">Track Order</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow">FROM RAJASTHAN • PHALODI • HINDALGOAL PANCHAYAT</p>
+      <h1>Print smarter.<br><span>Get it done.</span></h1>
+      <p class="hero-copy">Upload your PDF or image, choose your print settings, send the request, and track its progress from one simple place.</p>
+      <div class="actions">
+        <a class="button primary" href="#print">Start Printing</a>
+        <a class="button secondary" href="#services">Explore Services</a>
+      </div>
+    </section>
+
+    <section id="print" class="panel">
+      <div>
+        <p class="eyebrow">ONLINE PRINTING</p>
+        <h2>Send a print request</h2>
+        <p>Choose your document and settings. Final pricing will be calculated by the backend before payment.</p>
+      </div>
+      <form id="print-form">
+        <label for="file">PDF or image</label>
+        <input id="file" name="file" type="file" accept="application/pdf,image/jpeg,image/png" required>
+        <div class="grid">
+          <label>Copies <input name="copies" type="number" min="1" max="100" value="1"></label>
+          <label>Colour
+            <select name="colour"><option value="bw">Black & White</option><option value="color">Colour</option></select>
+          </label>
+          <label>Sides
+            <select name="sides"><option value="single">Single-sided</option><option value="double">Double-sided</option></select>
+          </label>
+          <label>Orientation
+            <select name="orientation"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select>
+          </label>
+        </div>
+        <button class="button primary" type="submit">Continue</button>
+        <p id="form-message" class="message" role="status"></p>
+      </form>
+    </section>
+
+    <section id="services" class="section">
+      <p class="eyebrow">DIGITAL ASSISTANCE</p>
+      <h2>More than printing</h2>
+      <div class="cards">
+        <article><h3>Document Printing</h3><p>PDF, image and everyday document printing assistance.</p></article>
+        <article><h3>Scanning</h3><p>Get documents scanned and prepared digitally.</p></article>
+        <article><h3>Online Forms</h3><p>Assistance with online applications and document preparation.</p></article>
+        <article><h3>e-Mitra Services</h3><p>Digital assistance for commonly requested services.</p></article>
+      </div>
+    </section>
+
+    <section id="track" class="panel compact">
+      <div><p class="eyebrow">ORDER STATUS</p><h2>Track your request</h2><p>Enter your JEM order ID to view payment and print progress.</p></div>
+      <form id="track-form" class="track-form">
+        <label class="sr-only" for="order-id">Order ID</label>
+        <input id="order-id" placeholder="JEM-2026-000001" autocomplete="off" required>
+        <button class="button primary" type="submit">Track</button>
+      </form>
+      <div id="track-result" class="status" hidden></div>
+    </section>
+
+    <section id="contact" class="section contact">
+      <p class="eyebrow">JANGIRA E-MITRA</p>
+      <h2>Need help?</h2>
+      <p>For print or digital-assistance queries, contact Jangira E-Mitra directly.</p>
+    </section>
+  </main>
+
+  <footer>© 2026 Jangira E-Mitra. Digital assistance service.</footer>
+  <script src="./config.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
