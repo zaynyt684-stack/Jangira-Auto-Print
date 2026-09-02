@@ -7,10 +7,8 @@ const fileInput = $('#file');
 const fileStatus = $('#file-status');
 const formMessage = $('#form-message');
 const estimate = $('.estimate strong');
-const trackForm = $('#track-form');
-const trackResult = $('#track-result');
 
-const PRICES = { bw: 2, color: 10, single: 0, double: 1 };
+const PRICE_PER_PAGE = 5;
 
 function parsePages(value, pageCount) {
   const text = String(value || 'all').trim().toLowerCase();
@@ -34,11 +32,9 @@ function updateEstimate() {
   if (!printForm || !estimate) return;
   const pages = parsePages($('[name="pages"]', printForm)?.value, window.JEM_PAGE_COUNT || 1);
   const copies = Math.min(100, Math.max(1, Number($('[name="copies"]', printForm)?.value || 1)));
-  const colour = $('[name="colour"]', printForm)?.value || 'bw';
-  const sides = $('[name="sides"]', printForm)?.value || 'single';
   if (!pages) { estimate.textContent = 'Check page selection'; return; }
-  const amount = (pages * copies * (PRICES[colour] || 0)) + (sides === 'double' ? pages * copies * PRICES.double : 0);
-  estimate.textContent = `₹${amount.toFixed(2)} provisional`;
+  const amount = pages * copies * PRICE_PER_PAGE;
+  estimate.textContent = `₹${amount.toFixed(2)}`;
 }
 
 function setMessage(text, type = '') {
@@ -57,7 +53,7 @@ function setFile(file) {
   } catch {}
   fileStatus.querySelector('span:last-child').textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB`;
   fileStatus.classList.add('has-file');
-  setMessage('Document ready. Choose your print settings.', 'success');
+  setMessage('Document ready. Choose your printer settings.', 'success');
   updateEstimate();
 }
 
@@ -74,61 +70,34 @@ printForm?.addEventListener('submit', async e => {
   const pageCount = window.JEM_PAGE_COUNT || (String(pageText).toLowerCase() === 'all' ? 1 : parsePages(pageText));
   const selectedCount = parsePages(pageText, pageCount);
   if (!selectedCount) return setMessage('Please enter valid pages, for example 1-4, 7, 9.', 'error');
-  if (!API) return setMessage('The print backend is not connected yet. Your settings are ready; payment and submission will activate when the backend is configured.', 'info');
+
+  if (!API) return setMessage('Your document and settings are ready. Backend submission will be connected next.', 'info');
 
   const button = printForm.querySelector('button[type="submit"]');
-  if (button) { button.disabled = true; button.dataset.originalText = button.textContent; button.textContent = 'Preparing request…'; }
+  if (button) { button.disabled = true; button.dataset.originalText = button.textContent; button.textContent = 'Preparing…'; }
   setMessage('Creating your print request…', 'info');
   try {
+    const copies = Number(fd.get('copies') || 1);
     const payload = {
       fileName: file.name,
       pageCount: Number(pageCount) || 1,
       selectedPages: pageText,
-      copies: Number(fd.get('copies') || 1),
-      colour: fd.get('colour') || 'bw',
+      copies,
+      colour: 'bw',
       sides: fd.get('sides') || 'single',
-      orientation: fd.get('orientation') || 'portrait'
+      orientation: fd.get('orientation') || 'portrait',
+      amount: selectedCount * copies * PRICE_PER_PAGE
     };
     const response = await fetch(`${API}/api/orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Could not create the order.');
+    if (!response.ok) throw new Error(data.error || 'Could not create the print request.');
     const orderId = data.orderNumber || data.orderId || data.id;
-    setMessage(`Order ${orderId || 'created'} is ready. Payment integration will appear here next; nothing has been marked as paid automatically.`, 'success');
-    if (orderId) { localStorage.setItem('JEM_LAST_ORDER', orderId); if ($('#order-id')) $('#order-id').value = orderId; }
+    setMessage(`Print request ${orderId || 'created'} is ready.`, 'success');
   } catch (error) {
-    setMessage(error.message || 'Could not create the order right now.', 'error');
+    setMessage(error.message || 'Could not create the print request right now.', 'error');
   } finally {
-    if (button) { button.disabled = false; button.textContent = button.dataset.originalText || 'Continue to payment →'; }
+    if (button) { button.disabled = false; button.textContent = button.dataset.originalText || 'Continue →'; }
   }
 });
 
-function statusClass(status) { return String(status || '').toLowerCase().replace(/[^a-z]+/g, '-'); }
-function renderStatus(data) {
-  if (!trackResult) return;
-  const status = data.status || 'Received';
-  const payment = data.paymentStatus || 'Pending';
-  const labels = ['Received', 'AwaitingPaymentVerification', 'Approved', 'Queued', 'Downloading', 'Validating', 'Printing', 'Completed'];
-  const index = Math.max(0, labels.indexOf(status));
-  const active = ['Rejected', 'Failed', 'Cancelled', 'PaymentExpired'].includes(status) ? -1 : index;
-  const steps = labels.map((label, i) => `<span class="track-step ${i <= active ? 'active' : ''}">${label.replace(/([a-z])([A-Z])/g, '$1 $2')}</span>`).join('');
-  trackResult.hidden = false;
-  trackResult.className = `status ${statusClass(status)}`;
-  trackResult.innerHTML = `<strong>${status.replace(/([a-z])([A-Z])/g, '$1 $2')}</strong><small>Payment: ${payment}</small><div class="live-steps">${steps}</div>`;
-}
-
-async function fetchOrder(id) {
-  if (!API) { if (trackResult) { trackResult.hidden = false; trackResult.textContent = `Tracking backend is not connected yet. Order: ${id}`; } return; }
-  try {
-    const response = await fetch(`${API}/api/orders/${encodeURIComponent(id)}`, { headers: { Accept: 'application/json' } });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Order could not be found.');
-    renderStatus(data);
-  } catch (error) {
-    if (trackResult) { trackResult.hidden = false; trackResult.className = 'status error'; trackResult.textContent = error.message || 'Order could not be found right now.'; }
-  }
-}
-
-trackForm?.addEventListener('submit', e => { e.preventDefault(); const id = $('#order-id')?.value.trim(); if (id) fetchOrder(id); });
-const lastOrder = localStorage.getItem('JEM_LAST_ORDER');
-if ($('#order-id') && lastOrder) $('#order-id').value = lastOrder;
 updateEstimate();
