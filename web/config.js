@@ -1,1 +1,1 @@
-window.JEM_CONFIG={API_BASE_URL:"",SIGNALR_URL:"",ENVIRONMENT:"production"};
+window.JEM_CONFIG={API_BASE_URL:"https://jangira-auto-print-api.emitrajangira.workers.dev",SIGNALR_URL:"",ENVIRONMENT:"production"};
