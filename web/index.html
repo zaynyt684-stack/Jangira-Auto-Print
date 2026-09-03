@@ -24,9 +24,9 @@
       <div class="hero-inner reveal">
         <div class="location-pill"><span class="pulse-dot"></span> FROM RAJASTHAN · PHALODI · HINDALGOAL</div>
         <h1>Print simple.<br><em>Print smart.</em></h1>
-        <p class="hero-copy">Upload your document, choose your printing settings, and see the exact price before you continue.</p>
+        <p class="hero-copy">Upload your document, choose your printing settings, pay securely by UPI, and send your print request.</p>
         <a class="button primary large" href="#print">Start Printing <span>→</span></a>
-        <div class="hero-proof"><span>₹5 per page</span><i></i><span>Black & White</span><i></i><span>PDF & images</span></div>
+        <div class="hero-proof"><span>₹5 per page</span><i></i><span>Black & White</span><i></i><span>UPI payment</span></div>
       </div>
     </section>
 
@@ -58,9 +58,26 @@
           </div>
           <div class="range-row"><label>Pages</label><input name="pages" placeholder="All pages (e.g. 1-4, 7, 9)" value="all"></div>
           <div class="estimate"><div><span>Price</span><strong>₹5.00</strong><small>₹5 × pages × copies</small></div><span class="estimate-icon">₹</span></div>
-          <button class="button primary full" type="submit">Continue <span>→</span></button>
+          <button class="button primary full" type="submit">Continue to Payment <span>→</span></button>
           <p id="form-message" class="message" role="status"></p>
         </form>
+      </div>
+
+      <div id="payment-panel" class="payment-panel reveal" hidden>
+        <div class="mini-label">STEP 03 · UPI PAYMENT</div>
+        <div class="payment-layout">
+          <div class="qr-wrap"><img id="upi-qr" alt="UPI payment QR code"><p>Scan with any UPI app</p></div>
+          <div class="payment-copy">
+            <span class="payment-badge">SECURE UPI</span>
+            <h3>Pay <strong id="payment-amount">₹0.00</strong></h3>
+            <p>Amount is automatically filled. Pay to the Jangira E-Mitra UPI ID below.</p>
+            <div class="upi-id-row"><span id="upi-id">barkatkhanhindal6-1@okaxis</span><button type="button" id="copy-upi">Copy</button></div>
+            <p class="payment-note">After payment, enter the UTR / transaction reference and send your print request.</p>
+            <label>UTR / Transaction ID<input id="utr" name="utr" inputmode="numeric" maxlength="40" placeholder="Enter payment reference"></label>
+            <button class="button primary full" type="button" id="send-print-request">I’ve Paid — Send Print Request <span>→</span></button>
+            <p id="payment-message" class="message" role="status"></p>
+          </div>
+        </div>
       </div>
     </section>
   </main>
