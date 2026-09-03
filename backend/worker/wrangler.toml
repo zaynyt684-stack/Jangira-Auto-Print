@@ -1,0 +1,13 @@
+name = "jangira-auto-print-api"
+main = "src/index.js"
+compatibility_date = "2026-09-03"
+
+[triggers]
+crons = ["*/15 * * * *"]
+
+[vars]
+# Secrets are NOT stored here.
+# Add SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and AGENT_TOKEN with:
+# wrangler secret put SUPABASE_URL
+# wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+# wrangler secret put AGENT_TOKEN
