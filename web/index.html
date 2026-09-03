@@ -4,12 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#11110f">
-  <meta name="description" content="Jangira E-Mitra online printing — upload a document and choose your printer settings.">
+  <meta name="description" content="Jangira E-Mitra online printing — upload, configure, pay and send your print request.">
   <title>Jangira E-Mitra | Online Printing</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
+  <style>
+    .workflow{display:grid;gap:18px}.workflow-step{background:#fff;border:1px solid #dedbd3;border-radius:24px;overflow:hidden;box-shadow:0 20px 55px #17171309}.workflow-step[hidden]{display:none}.step-head{display:flex;align-items:center;gap:15px;padding:22px 28px;border-bottom:1px solid #ebe8e1;background:#faf9f6}.step-num{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:#171713;color:#fff;font-weight:800;font-size:.8rem}.step-head strong{font-family:Manrope,sans-serif;font-size:1rem}.step-head small{display:block;color:#8b877f;font-size:.7rem;margin-top:2px}.step-body{padding:30px}.step-actions{display:flex;gap:12px;margin-top:22px}.step-actions .button{flex:1}.back-button{background:#f0eee8!important;color:#292824!important}.payment-layout{display:grid;grid-template-columns:minmax(220px,280px) 1fr;gap:36px;align-items:center}.qr-wrap{text-align:center}.upi-qr{width:240px;height:240px;display:block;margin:auto;border:10px solid #fff;border-radius:18px;box-shadow:0 12px 35px #17171312}.payment-copy h3{font-family:Manrope,sans-serif;font-size:2.1rem;letter-spacing:-.04em;margin:8px 0}.payment-copy h3 strong{color:#9b6b28}.payment-note{padding:12px 14px;border-radius:11px;background:#f3f1ec;color:#77736c;font-size:.72rem}.request-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}.summary-item{padding:15px;border-radius:13px;background:#f3f1ec}.summary-item span{display:block;color:#8a867e;font-size:.65rem}.summary-item strong{display:block;margin-top:4px;font-size:.82rem;word-break:break-word}.status-card{padding:24px;border-radius:18px;background:#171713;color:#fff}.status-line{display:flex;align-items:center;gap:12px}.status-dot{width:11px;height:11px;border-radius:50%;background:#d6a451;box-shadow:0 0 0 6px #d6a45118}.status-card h3{font-family:Manrope,sans-serif;margin:0;font-size:1.25rem}.status-card p{color:#aaa69d;font-size:.8rem;margin:10px 0 0}.status-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:22px}.status-steps div{padding:11px;border:1px solid #ffffff12;border-radius:10px;color:#706c65;font-size:.65rem;text-align:center}.status-steps .active{color:#fff;border-color:#d6a451;background:#ffffff08}.success-banner{margin-top:16px;padding:13px 15px;border-radius:12px;background:#e8eee7;color:#3d5e42;font-size:.76rem}.settings-side{padding:0}.settings-grid{grid-template-columns:repeat(3,1fr)}@media(max-width:760px){.payment-layout{grid-template-columns:1fr}.request-summary,.status-steps{grid-template-columns:1fr 1fr}.step-body{padding:22px}.settings-grid{grid-template-columns:1fr 1fr}.step-actions{flex-direction:column}.upi-qr{width:210px;height:210px}}
+  </style>
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -24,7 +27,7 @@
       <div class="hero-inner reveal">
         <div class="location-pill"><span class="pulse-dot"></span> FROM RAJASTHAN · PHALODI · HINDALGOAL</div>
         <h1>Print simple.<br><em>Print smart.</em></h1>
-        <p class="hero-copy">Upload your document, choose your printing settings, pay securely by UPI, and send your print request.</p>
+        <p class="hero-copy">Upload your document, configure printing, pay by UPI and send the print request.</p>
         <a class="button primary large" href="#print">Start Printing <span>→</span></a>
         <div class="hero-proof"><span>₹5 per page</span><i></i><span>Black &amp; White</span><i></i><span>UPI payment</span></div>
       </div>
@@ -33,51 +36,85 @@
     <section id="print" class="print-section section-wrap">
       <div class="section-heading reveal">
         <div><span class="section-number">01</span><p class="eyebrow">ONLINE PRINTING</p></div>
-        <h2>Upload &amp; <em>choose.</em></h2>
-        <p>Only the settings you need. No unnecessary options.</p>
+        <h2>Complete your <em>print.</em></h2>
+        <p>Follow the steps one by one. Your amount is calculated automatically.</p>
       </div>
 
-      <div class="print-card reveal">
-        <div class="upload-side">
-          <div class="mini-label">STEP 01 · DOCUMENT</div>
-          <label class="dropzone" for="file">
-            <span class="upload-icon">↑</span><strong>Drop your file here</strong><span>or click to browse</span>
-            <small>PDF, JPG, JPEG or PNG · Max 20 MB</small>
-          </label>
-          <input id="file" name="file" type="file" accept="application/pdf,image/jpeg,image/png" required hidden>
-          <div class="file-status" id="file-status"><span class="file-dot"></span><span>No document selected</span></div>
-        </div>
-
-        <form id="print-form" class="settings-side">
-          <div class="mini-label">STEP 02 · PRINTER SETTINGS</div>
-          <div class="printer-info"><span>●</span><div><strong>Brother DCP-L2520D</strong><small>Black &amp; White · ₹5 per page</small></div></div>
-          <div class="settings-grid">
-            <label>Copies<input name="copies" type="number" min="1" max="100" value="1"></label>
-            <label>Sides<select name="sides"><option value="single">Single-sided</option><option value="double">Double-sided</option></select></label>
-            <label>Orientation<select name="orientation"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></label>
+      <div class="workflow">
+        <section id="step-1" class="workflow-step reveal">
+          <div class="step-head"><span class="step-num">01</span><div><strong>Upload Document</strong><small>PDF, JPG, JPEG or PNG · Maximum 20 MB</small></div></div>
+          <div class="step-body">
+            <label class="dropzone" for="file">
+              <span class="upload-icon">↑</span><strong>Drop your file here</strong><span>or click to browse</span><small>PDF, JPG, JPEG or PNG · Max 20 MB</small>
+            </label>
+            <input id="file" name="file" type="file" accept="application/pdf,image/jpeg,image/png" required hidden>
+            <div class="file-status" id="file-status"><span class="file-dot"></span><span>No document selected</span></div>
+            <div class="step-actions"><button class="button primary" id="to-step-2" type="button" disabled>Continue to Printer Settings <span>→</span></button></div>
+            <p id="form-message" class="message" role="status"></p>
           </div>
-          <div class="range-row"><label>Pages</label><input name="pages" placeholder="All pages (e.g. 1-4, 7, 9)" value="all"></div>
-          <div class="estimate"><div><span>Price</span><strong>₹5.00</strong><small>₹5 × pages × copies</small></div><span class="estimate-icon">₹</span></div>
-          <button class="button primary full" type="submit">Continue to Payment <span>→</span></button>
-          <p id="form-message" class="message" role="status"></p>
-        </form>
-      </div>
+        </section>
 
-      <div id="payment-panel" class="payment-panel reveal" hidden>
-        <div class="mini-label">STEP 03 · UPI PAYMENT</div>
-        <div class="payment-layout">
-          <div class="qr-wrap"><div id="upi-qr" class="upi-qr" aria-label="UPI payment QR code"></div><p>Scan with any UPI app</p></div>
-          <div class="payment-copy">
-            <span class="payment-badge">SECURE UPI</span>
-            <h3>Pay <strong id="payment-amount">₹0.00</strong></h3>
-            <p>Tap below to open your UPI app. The amount and payment note will be filled automatically.</p>
-            <a class="button primary full upi-app-button" id="upi-app-link" href="#">Pay via UPI <span>↗</span></a>
-            <p class="payment-note">The UPI payment note will include your print order details, including pages, copies, sides and orientation.</p>
-            <label>UTR / Transaction ID<input id="utr" name="utr" inputmode="numeric" maxlength="40" placeholder="Enter payment reference after payment"></label>
-            <button class="button primary full" type="button" id="send-print-request">I’ve Paid — Send Print Request <span>→</span></button>
+        <section id="step-2" class="workflow-step" hidden>
+          <div class="step-head"><span class="step-num">02</span><div><strong>Printer Settings</strong><small>Brother DCP-L2520D · Black &amp; White · ₹5 per page</small></div></div>
+          <div class="step-body settings-side">
+            <div class="printer-info"><span>●</span><div><strong>Brother DCP-L2520D</strong><small>Black &amp; White · ₹5 per page</small></div></div>
+            <form id="print-form">
+              <div class="settings-grid">
+                <label>Copies<input name="copies" type="number" min="1" max="100" value="1"></label>
+                <label>Sides<select name="sides"><option value="single">Single-sided</option><option value="double">Double-sided</option></select></label>
+                <label>Orientation<select name="orientation"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></label>
+              </div>
+              <div class="range-row"><label>Pages</label><input name="pages" placeholder="All pages (e.g. 1-4, 7, 9)" value="all"></div>
+              <div class="estimate"><div><span>Price</span><strong>₹5.00</strong><small>₹5 × pages × copies</small></div><span class="estimate-icon">₹</span></div>
+              <div class="step-actions"><button class="button back-button" id="back-to-step-1" type="button">← Back</button><button class="button primary" type="submit">Continue to Payment <span>→</span></button></div>
+            </form>
+          </div>
+        </section>
+
+        <section id="step-3" class="workflow-step" hidden>
+          <div class="step-head"><span class="step-num">03</span><div><strong>Pay via UPI</strong><small>Amount and payment note are filled automatically</small></div></div>
+          <div class="step-body">
+            <div class="payment-layout">
+              <div class="qr-wrap"><img id="upi-qr" class="upi-qr" alt="UPI payment QR code"><p>Scan with any UPI app</p></div>
+              <div class="payment-copy">
+                <span class="payment-badge">UPI PAYMENT</span>
+                <h3>Pay <strong id="payment-amount">₹0.00</strong></h3>
+                <p>Tap the button to open your UPI app. The exact amount and print details will be pre-filled.</p>
+                <a class="button primary full upi-app-button" id="upi-app-link" href="#">Pay via UPI <span>↗</span></a>
+                <p class="payment-note">Note: your payment note contains the document name, selected pages, copies, single/double-sided and orientation.</p>
+                <div class="step-actions"><button class="button back-button" id="back-to-step-2" type="button">← Back</button><button class="button primary" id="to-step-4" type="button">I’ve Paid →</button></div>
+              </div>
+            </div>
             <p id="payment-message" class="message" role="status"></p>
           </div>
-        </div>
+        </section>
+
+        <section id="step-4" class="workflow-step" hidden>
+          <div class="step-head"><span class="step-num">04</span><div><strong>Confirm Payment &amp; Send Request</strong><small>Enter the UTR / transaction reference from your UPI payment</small></div></div>
+          <div class="step-body">
+            <div class="request-summary">
+              <div class="summary-item"><span>Amount</span><strong id="summary-amount">₹0.00</strong></div>
+              <div class="summary-item"><span>Document</span><strong id="summary-file">—</strong></div>
+              <div class="summary-item"><span>Pages / Copies</span><strong id="summary-pages">—</strong></div>
+              <div class="summary-item"><span>Print mode</span><strong id="summary-mode">—</strong></div>
+            </div>
+            <label>UTR / Transaction ID<input id="utr" name="utr" inputmode="numeric" maxlength="40" placeholder="Enter payment reference after payment"></label>
+            <div class="step-actions"><button class="button back-button" id="back-to-step-3" type="button">← Back</button><button class="button primary" type="button" id="send-print-request">Send Print Request <span>→</span></button></div>
+            <p id="request-message" class="message" role="status"></p>
+          </div>
+        </section>
+
+        <section id="step-5" class="workflow-step" hidden>
+          <div class="step-head"><span class="step-num">05</span><div><strong>Print Request Status</strong><small>Keep this page open to follow your request</small></div></div>
+          <div class="step-body">
+            <div class="status-card">
+              <div class="status-line"><span class="status-dot"></span><div><h3 id="request-status-title">Request received</h3><p id="request-status-text">Your print request has been submitted successfully.</p></div></div>
+              <div class="status-steps"><div class="active">Request Received</div><div>Payment Verification</div><div>Print Queue</div><div>Printing</div></div>
+            </div>
+            <div class="success-banner" id="request-number">Your request number will appear here once the backend is connected.</div>
+            <button class="button primary full" id="new-print" type="button">Start New Print <span>→</span></button>
+          </div>
+        </section>
       </div>
     </section>
   </main>
@@ -88,7 +125,6 @@
   </footer>
 
   <script src="./config.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script src="./app.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded',()=>{
