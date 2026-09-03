@@ -26,7 +26,7 @@
         <h1>Print simple.<br><em>Print smart.</em></h1>
         <p class="hero-copy">Upload your document, choose your printing settings, pay securely by UPI, and send your print request.</p>
         <a class="button primary large" href="#print">Start Printing <span>→</span></a>
-        <div class="hero-proof"><span>₹5 per page</span><i></i><span>Black & White</span><i></i><span>UPI payment</span></div>
+        <div class="hero-proof"><span>₹5 per page</span><i></i><span>Black &amp; White</span><i></i><span>UPI payment</span></div>
       </div>
     </section>
 
@@ -66,12 +66,13 @@
       <div id="payment-panel" class="payment-panel reveal" hidden>
         <div class="mini-label">STEP 03 · UPI PAYMENT</div>
         <div class="payment-layout">
-          <div class="qr-wrap"><img id="upi-qr" alt="UPI payment QR code"><p>Scan with any UPI app</p></div>
+          <div class="qr-wrap"><div id="upi-qr" class="upi-qr" aria-label="UPI payment QR code"></div><p>Scan with any UPI app</p></div>
           <div class="payment-copy">
             <span class="payment-badge">SECURE UPI</span>
             <h3>Pay <strong id="payment-amount">₹0.00</strong></h3>
-            <p>Amount is automatically filled. Pay to the Jangira E-Mitra UPI ID below.</p>
+            <p>Amount is automatically filled for this print order.</p>
             <div class="upi-id-row"><span id="upi-id">barkatkhanhindal6-1@okaxis</span><button type="button" id="copy-upi">Copy</button></div>
+            <a class="button primary full upi-app-button" id="upi-app-link" href="#">Open UPI App <span>↗</span></a>
             <p class="payment-note">After payment, enter the UTR / transaction reference and send your print request.</p>
             <label>UTR / Transaction ID<input id="utr" name="utr" inputmode="numeric" maxlength="40" placeholder="Enter payment reference"></label>
             <button class="button primary full" type="button" id="send-print-request">I’ve Paid — Send Print Request <span>→</span></button>
@@ -87,7 +88,9 @@
     <div class="footer-bottom"><span>© 2026 Jangira E-Mitra</span><span>Online printing service</span></div>
   </footer>
 
-  <script src="./config.js"></script><script src="./app.js"></script>
+  <script src="./config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="./app.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded',()=>{
       const f=document.getElementById('file'),s=document.getElementById('file-status'),d=document.querySelector('.dropzone');
