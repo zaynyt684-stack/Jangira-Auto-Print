@@ -70,11 +70,10 @@
           <div class="payment-copy">
             <span class="payment-badge">SECURE UPI</span>
             <h3>Pay <strong id="payment-amount">₹0.00</strong></h3>
-            <p>Amount is automatically filled for this print order.</p>
-            <div class="upi-id-row"><span id="upi-id">barkatkhanhindal6-1@okaxis</span><button type="button" id="copy-upi">Copy</button></div>
-            <a class="button primary full upi-app-button" id="upi-app-link" href="#">Open UPI App <span>↗</span></a>
-            <p class="payment-note">After payment, enter the UTR / transaction reference and send your print request.</p>
-            <label>UTR / Transaction ID<input id="utr" name="utr" inputmode="numeric" maxlength="40" placeholder="Enter payment reference"></label>
+            <p>Tap below to open your UPI app. The amount and payment note will be filled automatically.</p>
+            <a class="button primary full upi-app-button" id="upi-app-link" href="#">Pay via UPI <span>↗</span></a>
+            <p class="payment-note">The UPI payment note will include your print order details, including pages, copies, sides and orientation.</p>
+            <label>UTR / Transaction ID<input id="utr" name="utr" inputmode="numeric" maxlength="40" placeholder="Enter payment reference after payment"></label>
             <button class="button primary full" type="button" id="send-print-request">I’ve Paid — Send Print Request <span>→</span></button>
             <p id="payment-message" class="message" role="status"></p>
           </div>
