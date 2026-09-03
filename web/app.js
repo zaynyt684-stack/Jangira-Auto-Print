@@ -1,6 +1,8 @@
 const cfg = window.JEM_CONFIG || {};
 const API = String(cfg.API_BASE_URL || '').replace(/\/$/, '');
 const UPI_ID = 'barkatkhanhindal6-1@okaxis';
+const UPI_NAME = 'Jangira E-Mitra';
+const PRICE_PER_PAGE = 5;
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const printForm = $('#print-form');
@@ -10,15 +12,13 @@ const formMessage = $('#form-message');
 const estimate = $('.estimate strong');
 const paymentPanel = $('#payment-panel');
 const paymentAmount = $('#payment-amount');
-const paymentMessage = $('#payment-message');
+const upiQr = $('#upi-qr');
+const upiIdEl = $('#upi-id');
+const copyUpi = $('#copy-upi');
 const utrInput = $('#utr');
-const upiAppLink = $('#upi-app-link');
-const copyUpiButton = $('#copy-upi');
-const sendPrintButton = $('#send-print-request');
-
-const PRICE_PER_PAGE = 5;
-let currentOrderId = null;
-let currentAmount = 0;
+const sendPrintRequest = $('#send-print-request');
+const paymentMessage = $('#payment-message');
+let pendingPayment = null;
 
 function parsePages(value, pageCount) {
   const text = String(value || 'all').trim().toLowerCase();
@@ -38,13 +38,19 @@ function parsePages(value, pageCount) {
   return selected.size;
 }
 
+function getSettings() {
+  const fd = new FormData(printForm);
+  const pageText = String(fd.get('pages') || 'all').trim();
+  const pageCount = Number(window.JEM_PAGE_COUNT) || (pageText.toLowerCase() === 'all' ? 1 : parsePages(pageText));
+  const selectedCount = parsePages(pageText, pageCount);
+  const copies = Math.min(100, Math.max(1, Number(fd.get('copies') || 1)));
+  return { fd, pageText, pageCount, selectedCount, copies, amount: selectedCount ? selectedCount * copies * PRICE_PER_PAGE : 0 };
+}
+
 function updateEstimate() {
   if (!printForm || !estimate) return;
-  const pages = parsePages($('[name="pages"]', printForm)?.value, window.JEM_PAGE_COUNT || 1);
-  const copies = Math.min(100, Math.max(1, Number($('[name="copies"]', printForm)?.value || 1)));
-  if (!pages) { estimate.textContent = 'Check page selection'; return; }
-  const amount = pages * copies * PRICE_PER_PAGE;
-  estimate.textContent = `₹${amount.toFixed(2)}`;
+  const { selectedCount, amount } = getSettings();
+  estimate.textContent = selectedCount ? `₹${amount.toFixed(2)}` : 'Check page selection';
 }
 
 function setMessage(text, type = '') {
@@ -59,31 +65,22 @@ function setPaymentMessage(text, type = '') {
   paymentMessage.dataset.type = type;
 }
 
-function buildUpiUri(amount) {
-  const params = new URLSearchParams({
-    pa: UPI_ID,
-    pn: 'Jangira E-Mitra',
-    am: Number(amount).toFixed(2),
-    cu: 'INR',
-    tn: currentOrderId ? `Print Order ${currentOrderId}` : 'Jangira Print'
-  });
+function makeUpiLink(amount) {
+  const params = new URLSearchParams({ pa: UPI_ID, pn: UPI_NAME, am: Number(amount).toFixed(2), cu: 'INR' });
   return `upi://pay?${params.toString()}`;
 }
 
-function showPayment(amount, orderId = null) {
-  currentAmount = Number(amount) || 0;
-  currentOrderId = orderId;
-  if (paymentAmount) paymentAmount.textContent = `₹${currentAmount.toFixed(2)}`;
-  const uri = buildUpiUri(currentAmount);
-  if (upiAppLink) upiAppLink.href = uri;
-  const qr = $('#upi-qr');
-  if (qr) {
-    qr.innerHTML = '';
-    if (window.QRCode) {
-      new QRCode(qr, { text: uri, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });
-    } else {
-      qr.textContent = 'QR library could not load. Use the UPI button below.';
-    }
+function makeQrUrl(upiLink) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=12&data=${encodeURIComponent(upiLink)}`;
+}
+
+function showPayment(amount, order = null) {
+  pendingPayment = { amount, order };
+  if (paymentAmount) paymentAmount.textContent = `₹${amount.toFixed(2)}`;
+  if (upiIdEl) upiIdEl.textContent = UPI_ID;
+  if (upiQr) {
+    upiQr.src = makeQrUrl(makeUpiLink(amount));
+    upiQr.dataset.upiLink = makeUpiLink(amount);
   }
   if (paymentPanel) {
     paymentPanel.hidden = false;
@@ -92,12 +89,10 @@ function showPayment(amount, orderId = null) {
   }
 }
 
-async function copyUpi() {
-  try {
-    await navigator.clipboard.writeText(UPI_ID);
-    setPaymentMessage('UPI ID copied.', 'success');
-  } catch {
-    setPaymentMessage(`UPI ID: ${UPI_ID}`, 'info');
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {
+    const input = document.createElement('input'); input.value = text; document.body.appendChild(input); input.select();
+    const ok = document.execCommand('copy'); input.remove(); return ok;
   }
 }
 
@@ -106,9 +101,7 @@ function setFile(file) {
   const allowed = ['application/pdf', 'image/jpeg', 'image/png'];
   if (file.size > 20 * 1024 * 1024) return setMessage('File size must be 20 MB or less.', 'error');
   if (file.type && !allowed.includes(file.type)) return setMessage('Only PDF, JPG, JPEG or PNG files are supported.', 'error');
-  try {
-    const dt = new DataTransfer(); dt.items.add(file); fileInput.files = dt.files;
-  } catch {}
+  try { const dt = new DataTransfer(); dt.items.add(file); fileInput.files = dt.files; } catch {}
   fileStatus.querySelector('span:last-child').textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB`;
   fileStatus.classList.add('has-file');
   setMessage('Document ready. Choose your printer settings.', 'success');
@@ -117,74 +110,87 @@ function setFile(file) {
 
 fileInput?.addEventListener('change', () => setFile(fileInput.files[0]));
 printForm?.querySelectorAll('input, select').forEach(el => el.addEventListener('input', updateEstimate));
-copyUpiButton?.addEventListener('click', copyUpi);
+copyUpi?.addEventListener('click', async () => {
+  const ok = await copyText(UPI_ID);
+  copyUpi.textContent = ok ? 'Copied ✓' : 'Copy failed';
+  setTimeout(() => { copyUpi.textContent = 'Copy'; }, 1500);
+});
 
 printForm?.addEventListener('submit', async e => {
   e.preventDefault();
   const file = fileInput?.files?.[0];
   if (!file) return setMessage('Please select a PDF or image first.', 'error');
   if (file.size > 20 * 1024 * 1024) return setMessage('File size must be 20 MB or less.', 'error');
-  const fd = new FormData(printForm);
-  const pageText = fd.get('pages') || 'all';
-  const pageCount = window.JEM_PAGE_COUNT || (String(pageText).toLowerCase() === 'all' ? 1 : parsePages(pageText));
-  const selectedCount = parsePages(pageText, pageCount);
+  const { fd, pageText, pageCount, selectedCount, copies, amount } = getSettings();
   if (!selectedCount) return setMessage('Please enter valid pages, for example 1-4, 7, 9.', 'error');
 
-  if (!API) {
-    const amount = selectedCount * Number(fd.get('copies') || 1) * PRICE_PER_PAGE;
-    showPayment(amount);
-    return setMessage('Payment amount prepared. Backend order submission will be connected next.', 'info');
-  }
-
   const button = printForm.querySelector('button[type="submit"]');
-  if (button) { button.disabled = true; button.dataset.originalText = button.textContent; button.textContent = 'Preparing…'; }
-  setMessage('Creating your print request…', 'info');
+  if (button) { button.disabled = true; button.dataset.originalText = button.textContent; button.textContent = 'Preparing payment…'; }
+  setMessage(`Amount ₹${amount.toFixed(2)} calculated. Opening UPI payment…`, 'success');
+
   try {
-    const copies = Number(fd.get('copies') || 1);
-    const payload = {
-      fileName: file.name,
-      pageCount: Number(pageCount) || 1,
-      selectedPages: pageText,
-      copies,
-      colour: 'bw',
-      sides: fd.get('sides') || 'single',
-      orientation: fd.get('orientation') || 'portrait',
-      amount: selectedCount * copies * PRICE_PER_PAGE
-    };
-    const response = await fetch(`${API}/api/orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Could not create the print request.');
-    const orderId = data.orderNumber || data.orderId || data.id;
-    const amount = Number(data.amount ?? payload.amount);
-    setMessage(`Order ${orderId || 'created'}. Complete the UPI payment below.`, 'success');
-    showPayment(amount, orderId);
+    let order = null;
+    if (API) {
+      const payload = {
+        fileName: file.name,
+        pageCount: Number(pageCount) || 1,
+        selectedPages: pageText,
+        copies,
+        colour: 'bw',
+        sides: fd.get('sides') || 'single',
+        orientation: fd.get('orientation') || 'portrait',
+        amount
+      };
+      const response = await fetch(`${API}/api/orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Could not create the print order.');
+      order = data;
+    }
+    showPayment(amount, order);
+    setMessage(`Payment amount ₹${amount.toFixed(2)} is ready. Scan the QR or open UPI on your phone.`, 'success');
   } catch (error) {
-    setMessage(error.message || 'Could not create the print request right now.', 'error');
+    setMessage(error.message || 'Could not prepare payment.', 'error');
   } finally {
-    if (button) { button.disabled = false; button.textContent = button.dataset.originalText || 'Continue →'; }
+    if (button) { button.disabled = false; button.textContent = button.dataset.originalText || 'Continue to Payment →'; }
   }
 });
 
-sendPrintButton?.addEventListener('click', async () => {
+sendPrintRequest?.addEventListener('click', async () => {
   const utr = String(utrInput?.value || '').trim();
-  if (!utr) return setPaymentMessage('Please enter the UTR / transaction ID after payment.', 'error');
-  if (!API || !currentOrderId) return setPaymentMessage('Backend order submission is not connected yet. Payment details are ready.', 'info');
-  sendPrintButton.disabled = true;
-  setPaymentMessage('Submitting your payment reference…', 'info');
+  if (!pendingPayment) return setPaymentMessage('Please complete the order details first.', 'error');
+  if (!utr || utr.length < 6) return setPaymentMessage('Please enter a valid UTR / transaction reference after payment.', 'error');
+
+  sendPrintRequest.disabled = true;
+  sendPrintRequest.dataset.originalText = sendPrintRequest.textContent;
+  sendPrintRequest.textContent = 'Sending…';
+  setPaymentMessage('Submitting your print request…', 'info');
   try {
-    const paid = await fetch(`${API}/api/orders/${encodeURIComponent(currentOrderId)}/payment`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paid: true, utr })
-    });
-    const paidData = await paid.json().catch(() => ({}));
-    if (!paid.ok) throw new Error(paidData.error || 'Payment reference could not be submitted.');
-    const request = await fetch(`${API}/api/orders/${encodeURIComponent(currentOrderId)}/send-print-request`, { method: 'POST' });
-    const requestData = await request.json().catch(() => ({}));
-    if (!request.ok) throw new Error(requestData.error || 'Print request could not be sent.');
-    setPaymentMessage('Payment reference submitted. Your print request is now awaiting verification.', 'success');
-    sendPrintButton.textContent = 'Request Sent ✓';
+    if (API && pendingPayment.order) {
+      const id = pendingPayment.order.id || pendingPayment.order.orderId;
+      if (id) {
+        const payResponse = await fetch(`${API}/api/orders/${encodeURIComponent(id)}/payment`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paid: true, utr })
+        });
+        const payData = await payResponse.json().catch(() => ({}));
+        if (!payResponse.ok) throw new Error(payData.error || 'Payment confirmation failed.');
+        const requestResponse = await fetch(`${API}/api/orders/${encodeURIComponent(id)}/send-print-request`, { method: 'POST' });
+        const requestData = await requestResponse.json().catch(() => ({}));
+        if (!requestResponse.ok) throw new Error(requestData.error || 'Could not send print request.');
+        const number = requestData.orderNumber || pendingPayment.order.orderNumber || id;
+        setPaymentMessage(`Request ${number} sent successfully. Payment is awaiting verification.`, 'success');
+        sendPrintRequest.textContent = 'Request Sent ✓';
+        return;
+      }
+    }
+    setPaymentMessage(`Test payment recorded for ₹${pendingPayment.amount.toFixed(2)}. UTR: ${utr}. Backend verification will be connected next.`, 'success');
+    sendPrintRequest.textContent = 'Test Request Sent ✓';
   } catch (error) {
-    setPaymentMessage(error.message || 'Could not submit the payment reference.', 'error');
-    sendPrintButton.disabled = false;
+    setPaymentMessage(error.message || 'Could not send the print request.', 'error');
+  } finally {
+    if (!sendPrintRequest.textContent.includes('✓')) {
+      sendPrintRequest.disabled = false;
+      sendPrintRequest.textContent = sendPrintRequest.dataset.originalText || 'I’ve Paid — Send Print Request →';
+    }
   }
 });
 
