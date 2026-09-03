@@ -13,8 +13,7 @@ const estimate = $('.estimate strong');
 const paymentPanel = $('#payment-panel');
 const paymentAmount = $('#payment-amount');
 const upiQr = $('#upi-qr');
-const upiIdEl = $('#upi-id');
-const copyUpi = $('#copy-upi');
+const upiAppLink = $('#upi-app-link');
 const utrInput = $('#utr');
 const sendPrintRequest = $('#send-print-request');
 const paymentMessage = $('#payment-message');
@@ -44,7 +43,16 @@ function getSettings() {
   const pageCount = Number(window.JEM_PAGE_COUNT) || (pageText.toLowerCase() === 'all' ? 1 : parsePages(pageText));
   const selectedCount = parsePages(pageText, pageCount);
   const copies = Math.min(100, Math.max(1, Number(fd.get('copies') || 1)));
-  return { fd, pageText, pageCount, selectedCount, copies, amount: selectedCount ? selectedCount * copies * PRICE_PER_PAGE : 0 };
+  return {
+    fd,
+    pageText,
+    pageCount,
+    selectedCount,
+    copies,
+    sides: fd.get('sides') || 'single',
+    orientation: fd.get('orientation') || 'portrait',
+    amount: selectedCount ? selectedCount * copies * PRICE_PER_PAGE : 0
+  };
 }
 
 function updateEstimate() {
@@ -65,8 +73,19 @@ function setPaymentMessage(text, type = '') {
   paymentMessage.dataset.type = type;
 }
 
-function makeUpiLink(amount) {
-  const params = new URLSearchParams({ pa: UPI_ID, pn: UPI_NAME, am: Number(amount).toFixed(2), cu: 'INR' });
+function makePaymentNote(settings, fileName) {
+  const pages = settings.pageText.toLowerCase() === 'all' ? 'All pages' : settings.pageText;
+  return `Jangira Print | ${fileName || 'Document'} | Pages: ${pages} | Copies: ${settings.copies} | ${settings.sides === 'double' ? 'Double-sided' : 'Single-sided'} | ${settings.orientation === 'landscape' ? 'Landscape' : 'Portrait'}`;
+}
+
+function makeUpiLink(amount, note) {
+  const params = new URLSearchParams({
+    pa: UPI_ID,
+    pn: UPI_NAME,
+    tn: note,
+    am: Number(amount).toFixed(2),
+    cu: 'INR'
+  });
   return `upi://pay?${params.toString()}`;
 }
 
@@ -74,25 +93,23 @@ function makeQrUrl(upiLink) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=12&data=${encodeURIComponent(upiLink)}`;
 }
 
-function showPayment(amount, order = null) {
-  pendingPayment = { amount, order };
+function showPayment(amount, settings, fileName, order = null) {
+  const note = makePaymentNote(settings, fileName);
+  const upiLink = makeUpiLink(amount, note);
+  pendingPayment = { amount, order, note, upiLink };
   if (paymentAmount) paymentAmount.textContent = `₹${amount.toFixed(2)}`;
-  if (upiIdEl) upiIdEl.textContent = UPI_ID;
   if (upiQr) {
-    upiQr.src = makeQrUrl(makeUpiLink(amount));
-    upiQr.dataset.upiLink = makeUpiLink(amount);
+    upiQr.src = makeQrUrl(upiLink);
+    upiQr.dataset.upiLink = upiLink;
+  }
+  if (upiAppLink) {
+    upiAppLink.href = upiLink;
+    upiAppLink.dataset.upiLink = upiLink;
   }
   if (paymentPanel) {
     paymentPanel.hidden = false;
     paymentPanel.classList.add('visible');
     paymentPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-}
-
-async function copyText(text) {
-  try { await navigator.clipboard.writeText(text); return true; } catch {
-    const input = document.createElement('input'); input.value = text; document.body.appendChild(input); input.select();
-    const ok = document.execCommand('copy'); input.remove(); return ok;
   }
 }
 
@@ -110,18 +127,13 @@ function setFile(file) {
 
 fileInput?.addEventListener('change', () => setFile(fileInput.files[0]));
 printForm?.querySelectorAll('input, select').forEach(el => el.addEventListener('input', updateEstimate));
-copyUpi?.addEventListener('click', async () => {
-  const ok = await copyText(UPI_ID);
-  copyUpi.textContent = ok ? 'Copied ✓' : 'Copy failed';
-  setTimeout(() => { copyUpi.textContent = 'Copy'; }, 1500);
-});
 
 printForm?.addEventListener('submit', async e => {
   e.preventDefault();
   const file = fileInput?.files?.[0];
   if (!file) return setMessage('Please select a PDF or image first.', 'error');
   if (file.size > 20 * 1024 * 1024) return setMessage('File size must be 20 MB or less.', 'error');
-  const { fd, pageText, pageCount, selectedCount, copies, amount } = getSettings();
+  const { fd, pageText, pageCount, selectedCount, copies, sides, orientation, amount } = getSettings();
   if (!selectedCount) return setMessage('Please enter valid pages, for example 1-4, 7, 9.', 'error');
 
   const button = printForm.querySelector('button[type="submit"]');
@@ -137,8 +149,8 @@ printForm?.addEventListener('submit', async e => {
         selectedPages: pageText,
         copies,
         colour: 'bw',
-        sides: fd.get('sides') || 'single',
-        orientation: fd.get('orientation') || 'portrait',
+        sides,
+        orientation,
         amount
       };
       const response = await fetch(`${API}/api/orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -146,8 +158,8 @@ printForm?.addEventListener('submit', async e => {
       if (!response.ok) throw new Error(data.error || 'Could not create the print order.');
       order = data;
     }
-    showPayment(amount, order);
-    setMessage(`Payment amount ₹${amount.toFixed(2)} is ready. Scan the QR or open UPI on your phone.`, 'success');
+    showPayment(amount, { pageText, copies, sides, orientation }, file.name, order);
+    setMessage(`Payment amount ₹${amount.toFixed(2)} is ready. Tap Pay via UPI to open your UPI app.`, 'success');
   } catch (error) {
     setMessage(error.message || 'Could not prepare payment.', 'error');
   } finally {
