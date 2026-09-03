@@ -11,7 +11,6 @@ public sealed class Order
     public int PageCount { get; set; }
     public string SelectedPages { get; set; } = "all";
     public int Copies { get; set; } = 1;
-    public string Colour { get; set; } = "bw";
     public string Sides { get; set; } = "single";
     public string Orientation { get; set; } = "portrait";
     public decimal Amount { get; set; }
