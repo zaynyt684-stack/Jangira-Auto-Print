@@ -5,7 +5,8 @@ const PRICE_PER_PAGE=5;
 const $=(s,r=document)=>r.querySelector(s);
 const load=()=>{try{return JSON.parse(localStorage.getItem(FLOW_KEY)||'{}')}catch{return{}}};
 const save=p=>{const n={...load(),...p};localStorage.setItem(FLOW_KEY,JSON.stringify(n));return n};
-const go=n=>window.location.href=`./${n}.html`;
+const STEP_PAGES={1:'upload.html',2:'settings.html',3:'payment.html',4:'confirm.html',5:'status.html'};
+const go=n=>{const page=STEP_PAGES[n]||STEP_PAGES[1];window.location.assign(`./${page}`)};
 function overlay(text='Loading…',sub='Please wait'){
  let x=$('#page-loader');
  if(!x){x=document.createElement('div');x.id='page-loader';x.className='page-loader';document.body.appendChild(x)}
