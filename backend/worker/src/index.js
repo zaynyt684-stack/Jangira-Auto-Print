@@ -1,5 +1,5 @@
 const ALLOWED_ORIGIN = "*";
-const BUCKET = "print-files";
+const BUCKET = "print-file";
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const MAX_COPIES = 100;
 const PRICE_PER_PAGE = 5;
@@ -74,13 +74,30 @@ function agentOk(request, env) {
   return supplied === expected;
 }
 
+function requestFilter(id) {
+  const value = String(id || "").trim();
+  // Customer tracking can use either the internal UUID or the numeric Request ID.
+  // Never send a numeric value to PostgREST's UUID column.
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    return `id=eq.${encodeURIComponent(value)}`;
+  }
+  if (/^\d+$/.test(value)) {
+    return `request_number=eq.${encodeURIComponent(value)}`;
+  }
+  return null;
+}
+
 async function getRequest(env, id) {
-  const rows = await supaJson(env, `/rest/v1/print_requests?id=eq.${encodeURIComponent(id)}&select=*`);
+  const filter = requestFilter(id);
+  if (!filter) return null;
+  const rows = await supaJson(env, `/rest/v1/print_requests?${filter}&select=*`);
   return rows?.[0] || null;
 }
 
 async function updateRequest(env, id, patch) {
-  return supaJson(env, `/rest/v1/print_requests?id=eq.${encodeURIComponent(id)}`, {
+  const filter = requestFilter(id);
+  if (!filter) throw new Error("Invalid request ID.");
+  return supaJson(env, `/rest/v1/print_requests?${filter}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", Prefer: "return=representation" },
     body: JSON.stringify(patch),
@@ -170,9 +187,9 @@ async function submitPayment(request, env, id) {
   if (!["RECEIVED", "PAYMENT_PENDING", "PENDING_PAYMENT"].includes(order.status)) return json({ error: "Payment cannot be submitted for this request." }, 409);
   const utr = String(body.utr || "").trim();
   if (utr.length < 6 || utr.length > 100) return json({ error: "Valid UTR is required." }, 400);
-  await updateRequest(env, id, { payment_status: "PENDING", payment_method: "UPI", payment_id: utr, status: "PAYMENT_PENDING" });
-  await event(env, id, "PAYMENT_SUBMITTED", `UTR submitted: ${utr.slice(0, 4)}****`, "customer");
-  return json({ id, status: "PAYMENT_PENDING", paymentStatus: "PENDING" });
+  await updateRequest(env, order.id, { payment_status: "PENDING", payment_method: "UPI", payment_id: utr, status: "PAYMENT_PENDING" });
+  await event(env, order.id, "PAYMENT_SUBMITTED", `UTR submitted: ${utr.slice(0, 4)}****`, "customer");
+  return json({ id: order.id, requestNumber: order.request_number, status: "PAYMENT_PENDING", paymentStatus: "PENDING" });
 }
 
 async function agentQueue(request, env) {
@@ -189,12 +206,12 @@ async function agentClaim(request, env, id) {
   const current = await getRequest(env, id);
   if (!current) return json({ error: "Request not found" }, 404);
   if (!["PAYMENT_PENDING", "WAITING_FOR_OPERATOR", "FAILED"].includes(current.status)) return json({ error: "Request is not claimable", status: current.status }, 409);
-  const updated = await supaJson(env, `/rest/v1/print_requests?id=eq.${encodeURIComponent(id)}&status=eq.${encodeURIComponent(current.status)}`, {
+  const updated = await supaJson(env, `/rest/v1/print_requests?id=eq.${encodeURIComponent(current.id)}&status=eq.${encodeURIComponent(current.status)}`, {
     method: "PATCH", headers: { "Content-Type": "application/json", Prefer: "return=representation" },
     body: JSON.stringify({ status: "REVIEWING", operator_id: operatorId, operator_name: operatorName, reviewed_at: new Date().toISOString() }),
   });
   if (!updated?.length) return json({ error: "Request was already claimed by another agent." }, 409);
-  await event(env, id, "CLAIMED", "Request claimed for operator review", operatorName);
+  await event(env, current.id, "CLAIMED", "Request claimed for operator review", operatorName);
   return json(updated[0]);
 }
 
@@ -208,9 +225,9 @@ async function agentDecision(request, env, id) {
   const action = String(body.action || "").toLowerCase();
   if (action === "reject") {
     const reason = String(body.reason || "Rejected by operator").slice(0, 500);
-    await updateRequest(env, id, { status: "REJECTED", rejection_reason: reason, operator_note: String(body.note || "").slice(0, 1000), rejected_at: new Date().toISOString() });
-    await event(env, id, "REJECTED", reason, order.operator_name || "operator");
-    return json({ id, status: "REJECTED" });
+    await updateRequest(env, order.id, { status: "REJECTED", rejection_reason: reason, operator_note: String(body.note || "").slice(0, 1000), rejected_at: new Date().toISOString() });
+    await event(env, order.id, "REJECTED", reason, order.operator_name || "operator");
+    return json({ id: order.id, requestNumber: order.request_number, status: "REJECTED" });
   }
 
   if (action !== "approve") return json({ error: "action must be approve or reject" }, 400);
@@ -221,9 +238,9 @@ async function agentDecision(request, env, id) {
     final_file_path: body.finalFilePath || order.final_file_path || null,
     approved_at: new Date().toISOString(),
   };
-  const updated = await updateRequest(env, id, patch);
-  await event(env, id, "APPROVED", "Request approved and queued for printing", order.operator_name || "operator");
-  return json(updated?.[0] || { id, status: patch.status });
+  const updated = await updateRequest(env, order.id, patch);
+  await event(env, order.id, "APPROVED", "Request approved and queued for printing", order.operator_name || "operator");
+  return json(updated?.[0] || { id: order.id, requestNumber: order.request_number, status: patch.status });
 }
 
 async function agentStatus(request, env, id) {
@@ -240,9 +257,9 @@ async function agentStatus(request, env, id) {
   if (status === "FAILED") patch.last_error = String(body.error || "Print failed").slice(0, 1000);
   if (body.printedCopies != null) patch.printed_copies = Math.max(0, Number(body.printedCopies) || 0);
   if (body.printAttempts != null) patch.print_attempts = Math.max(0, Number(body.printAttempts) || 0);
-  const updated = await updateRequest(env, id, patch);
-  await event(env, id, status, body.message || status, order.operator_name || "agent");
-  return json(updated?.[0] || { id, status });
+  const updated = await updateRequest(env, order.id, patch);
+  await event(env, order.id, status, body.message || status, order.operator_name || "agent");
+  return json(updated?.[0] || { id: order.id, requestNumber: order.request_number, status });
 }
 
 async function downloadFile(request, env, id, kind = "original") {
