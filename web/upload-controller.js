@@ -1,42 +1,37 @@
 (()=>{
-const FLOW='jem_print_flow_v3',DB='jem_editor_v1',STORE='files';
+const FLOW='jem_print_flow_v3',DB='jem_editor_v1',STORE='files',DB_VERSION=2;
 const PDFJS='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',WORKER='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 const $=s=>document.querySelector(s);
 const api=()=>String((window.JEM_CONFIG||{}).API_BASE_URL||'').replace(/\/$/,'');
 const flow=()=>{try{return JSON.parse(localStorage.getItem(FLOW)||'{}')}catch{return{}}};
 const save=v=>localStorage.setItem(FLOW,JSON.stringify({...flow(),...v}));
 const fingerprint=f=>`${f.name}|${f.size}|${f.lastModified}`;
-const openDB=()=>new Promise((r,j)=>{const x=indexedDB.open(DB,1);x.onupgradeneeded=()=>x.result.createObjectStore(STORE);x.onsuccess=()=>r(x.result);x.onerror=()=>j(x.error)});
-const put=async f=>{const db=await openDB();return new Promise((r,j)=>{const t=db.transaction(STORE,'readwrite');t.objectStore(STORE).put(f,'source');t.oncomplete=r;t.onerror=()=>j(t.error)})};
+const openDB=()=>new Promise((resolve,reject)=>{const x=indexedDB.open(DB,DB_VERSION);x.onupgradeneeded=()=>{const db=x.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE)};x.onsuccess=()=>{const db=x.result;if(!db.objectStoreNames.contains(STORE)){db.close();reject(Error('Editor storage could not be initialized. Please refresh and try again.'));return}resolve(db)};x.onerror=()=>reject(x.error||Error('Could not open editor storage.'))});
+const put=async f=>{const db=await openDB();return new Promise((r,j)=>{const t=db.transaction(STORE,'readwrite');t.objectStore(STORE).put(f,'source');t.oncomplete=()=>{db.close();r()};t.onerror=()=>{db.close();j(t.error)}})};
 let pdfPromise;
 const loadPdf=()=>{if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);if(pdfPromise)return pdfPromise;pdfPromise=new Promise((r,j)=>{const s=document.createElement('script');s.src=PDFJS;s.onload=()=>window.pdfjsLib?(window.pdfjsLib.GlobalWorkerOptions.workerSrc=WORKER,r(window.pdfjsLib)):j(Error('PDF engine unavailable.'));s.onerror=()=>j(Error('Could not load PDF engine.'));document.head.appendChild(s)});return pdfPromise};
 const pageCount=async f=>{if(!/\.pdf$/i.test(f.name))return 1;const p=await loadPdf();const d=await p.getDocument({data:await f.arrayBuffer()}).promise;return d.numPages};
 const msg=t=>{const x=$('#form-message');if(x)x.textContent=t};
-const buttons=()=>[$('#to-step-2'),$('#continue-direct')].filter(Boolean);
+const buttons=()=>[$('#to-step-2'),$('#continue-without-editor'),$('#continue-direct')].filter(Boolean);
 const enable=v=>buttons().forEach(b=>{b.disabled=!v;b.setAttribute('aria-disabled',String(!v));b.style.pointerEvents=v?'auto':'none';});
-const clearOld=()=>{localStorage.removeItem(FLOW);localStorage.removeItem('jem_pdf_page_count');sessionStorage.removeItem('jem_skip_editor');};
-const upload=async(file)=>{const base=api();if(!base)throw Error('Print service is temporarily unavailable.');const n=Number(localStorage.getItem('jem_pdf_page_count')||0)||await pageCount(file);const fd=new FormData();fd.append('file',file);fd.append('pageCount',String(n));fd.append('copies','1');fd.append('sides','single');fd.append('orientation','portrait');fd.append('paperSize','A4');fd.append('colorMode','BW');fd.append('pageRange','all');const res=await fetch(base+'/api/print-requests',{method:'POST',body:fd});const text=await res.text();let d={};try{d=text?JSON.parse(text):{}}catch{d={error:text}}if(!res.ok)throw Error(d.error||`Upload failed (HTTP ${res.status}).`);const id=d.orderId||d.id;if(!id)throw Error('Server did not return a request ID.');save({orderId:id,orderNumber:d.requestNumber||id,fileName:d.fileName||file.name,fileSize:file.size,pageCount:Number(d.pageCount||n),status:d.status||'RECEIVED',paymentStatus:d.paymentStatus||'PENDING',amount:Number(d.amount||n*5),fileFingerprint:fingerprint(file)});return id};
+const clearOld=()=>{localStorage.removeItem(FLOW);localStorage.removeItem('jem_pdf_page_count');localStorage.removeItem('jem_pdf_page_fingerprint');sessionStorage.removeItem('jem_skip_editor');};
+const upload=async(file)=>{const base=api();if(!base)throw Error('Print service is temporarily unavailable.');const fp=fingerprint(file);const savedFp=localStorage.getItem('jem_pdf_page_fingerprint');const savedCount=Number(localStorage.getItem('jem_pdf_page_count')||0);const n=savedFp===fp&&savedCount>0?savedCount:await pageCount(file);const fd=new FormData();fd.append('file',file);fd.append('pageCount',String(n));fd.append('copies','1');fd.append('sides','single');fd.append('orientation','portrait');fd.append('paperSize','A4');fd.append('colorMode','BW');fd.append('pageRange','all');const res=await fetch(base+'/api/print-requests',{method:'POST',body:fd});const text=await res.text();let d={};try{d=text?JSON.parse(text):{}}catch{d={error:text}}if(!res.ok)throw Error(d.error||`Upload failed (HTTP ${res.status}).`);const id=d.orderId||d.id;if(!id)throw Error('Server did not return a request ID.');save({orderId:id,orderNumber:d.requestNumber||id,fileName:d.fileName||file.name,fileSize:file.size,pageCount:Number(d.pageCount||n),status:d.status||'RECEIVED',paymentStatus:d.paymentStatus||'PENDING',amount:Number(d.amount||n*5),fileFingerprint:fp});return id};
 const validate=async file=>{enable(false);if(!file){msg('Please select a document first.');return null}const okType=/\.(pdf|jpe?g|png)$/i.test(file.name),okSize=file.size<=50*1024*1024;if(!okType){msg('Only PDF, JPG, JPEG or PNG files are supported.');return null}if(!okSize){msg('File size must be 50 MB or less.');return null}msg('Checking document…');try{const n=await pageCount(file);localStorage.setItem('jem_pdf_page_count',String(n));localStorage.setItem('jem_pdf_page_fingerprint',fingerprint(file));const p=$('#analyzer-pages');if(p)p.textContent=`${n} page${n===1?'':'s'}`;const a=$('#document-analyzer');if(a)a.classList.add('show');msg('Document ready. Choose Edit Document or Continue without Document Editor.');enable(true);return n}catch(e){localStorage.removeItem('jem_pdf_page_count');localStorage.removeItem('jem_pdf_page_fingerprint');msg(e.message||'Could not read this document. Please select another file.');return null}};
 const current=()=>$('#file')?.files?.[0]||null;
 const setFile=async f=>{if(!f)return;try{const dt=new DataTransfer();dt.items.add(f);$('#file').files=dt.files}catch{};const old=flow();if(old.orderId)clearOld();await validate(f)};
 document.addEventListener('DOMContentLoaded',()=>{
  clearOld();enable(false);
- const input=$('#file');if(input){input.addEventListener('change',()=>setFile(input.files[0]));}
+ const input=$('#file');if(input)input.addEventListener('change',()=>setFile(input.files[0]));
  const dz=$('.dropzone');if(dz)dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragging');setFile(e.dataTransfer.files[0])});
  document.addEventListener('dragover',e=>{if(e.target.closest('.dropzone')){e.preventDefault();dz?.classList.add('dragging')}});
  document.addEventListener('dragleave',e=>{if(e.target.closest('.dropzone'))dz?.classList.remove('dragging')});
- document.addEventListener('change',e=>{if(e.target===input)setFile(input.files[0])});
  document.addEventListener('click',async e=>{
-   const edit=e.target.closest('#to-step-2'),direct=e.target.closest('#continue-direct');
+   const edit=e.target.closest('#to-step-2'),direct=e.target.closest('#continue-without-editor,#continue-direct');
    if(!edit&&!direct)return;
    e.preventDefault();e.stopImmediatePropagation();
    const file=current();if(!file){enable(false);msg('Please select a document first.');return}
-   if(edit&&edit.disabled||direct&&direct.disabled)return;
-   try{
-     enable(false);
-     if(edit){msg('Opening Document Editor…');await put(file);save({fileName:file.name,fileSize:file.size,pageCount:Number(localStorage.getItem('jem_pdf_page_count')||1),fileFingerprint:fingerprint(file),editorPending:true});location.assign('./editor.html');return}
-     msg('Uploading document…');await upload(file);location.assign('./settings.html');
-   }catch(err){enable(true);msg(err.message||'Could not continue. Please try again.')}
+   if((edit||direct).disabled)return;
+   try{enable(false);if(edit){msg('Opening Document Editor…');await put(file);save({fileName:file.name,fileSize:file.size,pageCount:Number(localStorage.getItem('jem_pdf_page_count')||1),fileFingerprint:fingerprint(file),editorPending:true});location.assign('./editor.html');return}msg('Uploading document…');await upload(file);location.assign('./settings.html')}catch(err){enable(true);msg(err.message||'Could not continue. Please try again.')}
  },true);
 });
 })();
