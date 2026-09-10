@@ -10,5 +10,37 @@ paper.className='paper-preview '+(form.elements.orientation.value==='landscape'?
 const refresh=()=>{const pages=parse(form.elements.pages.value,total),c=Math.max(1,Math.min(100,+form.elements.copies.value||1));$('#estimate-price').textContent=pages?`₹${pages.length*c*5}.00`:'Check page selection';const p=String(form.elements.pages.value||'all').trim();$('#settings-preview').textContent=`${form.elements.paperSize.value} · ${form.elements.orientation.value==='landscape'?'Landscape':'Portrait'} · ${form.elements.sides.value==='double'?'Double-sided':'Single-sided'} · ${c} ${c===1?'copy':'copies'} · ${p==='all'?'All pages':p}`;save({paperSize:form.elements.paperSize.value,pageText:p,copies:c,sides:form.elements.sides.value,orientation:form.elements.orientation.value});render()};
 $('#preview-prev')?.addEventListener('click',()=>{pos=Math.max(1,pos-1);render()});$('#preview-next')?.addEventListener('click',()=>{pos=Math.min((parse(form.elements.pages.value,total)||[]).length,pos+1);render()});form.querySelectorAll('input,select').forEach(e=>{e.addEventListener('input',refresh);e.addEventListener('change',refresh)});refresh();
 }
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',enhance);else enhance();
+
+/* Reliable payment-step bridge. This capture handler runs before the older settings submit handler, so the button can never remain a dead placeholder. */
+function initPaymentNavigation(){
+  const form=$('#print-form');
+  if(!form)return;
+  form.addEventListener('submit',async e=>{
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const s=flow(),msg=$('#form-message'),button=form.querySelector('button[type="submit"]');
+    if(!s.orderId||!s.fileName){msg.textContent='Your print session is missing. Please upload the document again.';return}
+    const pageCount=Math.max(1,Number(s.pageCount||1));
+    const pagesText=String(form.elements.pages.value||'all').trim()||'all';
+    const selected=parse(pagesText,pageCount);
+    if(!selected?.length){msg.textContent=`Invalid page selection. Enter 1-${pageCount}, for example 1-3, 5.`;return}
+    const copies=Math.max(1,Math.min(100,Number(form.elements.copies.value)||1));
+    const sides=form.elements.sides.value==='double'?'double':'single';
+    const orientation=form.elements.orientation.value==='landscape'?'landscape':'portrait';
+    const paperSize=form.elements.paperSize?.value||'A4';
+    const API=String((window.JEM_CONFIG||{}).API_BASE_URL||'').replace(/\/$/,'');
+    if(!API){msg.textContent='Print service is temporarily unavailable.';return}
+    button.disabled=true;
+    if(typeof window.overlay==='function')window.overlay('Saving print settings…','Updating your order securely');
+    try{
+      const r=await fetch(`${API}/api/print-requests/${encodeURIComponent(s.orderId)}/settings`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({copies,sides,orientation,pageRange:pagesText,paperSize,colorMode:'BW'})});
+      const text=await r.text();let d={};try{d=text?JSON.parse(text):{}}catch{d={}};
+      if(!r.ok)throw new Error(d.error||'Could not save print settings.');
+      save({pageText:pagesText,copies,sides,orientation,paperSize,selectedCount:selected.length,amount:Number(d.amount??selected.length*copies*5),status:d.status||s.status});
+      window.location.assign('./payment.html');
+    }catch(err){button.disabled=false;if(typeof window.hideLoader==='function')window.hideLoader();msg.textContent=err.message||'Could not save settings. Please try again.'}
+  },true);
+}
+
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{enhance();initPaymentNavigation()});else{enhance();initPaymentNavigation()}
 })();
