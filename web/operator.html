@@ -138,8 +138,7 @@ body{background:#f5f3ee}.operator{max-width:620px;margin:70px auto;padding:20px}
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + token,
-          'X-Operator-Token': token
+          'X-Agent-Token': token
         },
         body: JSON.stringify({ online: nextState })
       });
