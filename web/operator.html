@@ -30,7 +30,7 @@ body{background:#f5f3ee}.operator{max-width:620px;margin:70px auto;padding:20px}
 <script src="./config.js"></script>
 <script>
 (() => {
-  const API = (window.JEM_CONFIG && window.JEM_CONFIG.API_BASE_URL) || '';
+  const API = (window.JEM_CONFIG && window.JEM_CONFIG.API_BASE_URL || '').replace(/\/$/, '');
   const statusEl = document.getElementById('status');
   const updatedEl = document.getElementById('updated');
   const btn = document.getElementById('toggle');
@@ -58,17 +58,27 @@ body{background:#f5f3ee}.operator{max-width:620px;margin:70px auto;padding:20px}
     updatedEl.textContent = 'Manual control · live';
   }
 
-  async function readStatus() {
-    const response = await fetch(API + '/api/service-status?t=' + Date.now(), {
-      cache: 'no-store'
+  async function api(path, options = {}) {
+    const response = await fetch(API + path, {
+      cache: 'no-store',
+      mode: 'cors',
+      ...options,
+      headers: {
+        Accept: 'application/json',
+        ...(options.headers || {})
+      }
     });
     const text = await response.text();
     let data = {};
-    try { data = JSON.parse(text); } catch (_) {}
+    try { data = text ? JSON.parse(text) : {}; } catch (_) {}
     if (!response.ok) {
-      throw new Error(data.error || text || ('HTTP ' + response.status));
+      throw new Error(data.error || data.details || text || ('HTTP ' + response.status));
     }
     return data;
+  }
+
+  async function readStatus() {
+    return api('/api/service-status?t=' + Date.now());
   }
 
   async function load() {
@@ -110,35 +120,29 @@ body{background:#f5f3ee}.operator{max-width:620px;margin:70px auto;padding:20px}
     } catch (error) {
       loggedIn = false;
       control.hidden = true;
-      setMsg('Backend unavailable. Make sure the Worker and /api/service-status are deployed.', 'err');
+      setMsg('Backend unavailable: ' + (error.message || 'Request failed'), 'err');
     } finally {
       loginBtn.disabled = false;
     }
   }
 
   async function toggle() {
-    if (!loggedIn) return;
+    if (!loggedIn || !token) return;
 
+    const nextState = !state;
     btn.disabled = true;
-    setMsg('Updating…');
+    setMsg(nextState ? 'Opening customer portal…' : 'Closing customer portal…');
 
     try {
-      const response = await fetch(API + '/api/service-status', {
+      const data = await api('/api/service-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token,
           'X-Operator-Token': token
         },
-        body: JSON.stringify({ online: !state })
+        body: JSON.stringify({ online: nextState })
       });
-
-      const text = await response.text();
-      let data = {};
-      try { data = JSON.parse(text); } catch (_) {}
-
-      if (!response.ok) {
-        throw new Error(data.error || text || ('HTTP ' + response.status));
-      }
 
       state = data.online === true;
       render();
